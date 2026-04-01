@@ -130,12 +130,6 @@
     it = it + 1
   }
 
-  if info.subtitle != "" {
-    display_info(
-      " ",
-      info.subtitle,
-    )
-  }
 
   display_info(
     "Student Name：",

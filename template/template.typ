@@ -91,22 +91,18 @@
   prefer_en_header: false,
   en: false,
   anonymous: false,
-  keywords_zh: (:),
   keywords_en: (:),
-  info_zh: (:),
   info_en: (:),
   fonts: (:),
-  body_zh: "",
   body_en: "",
 ) = {
-  info_zh = make_default_abstract_info(info: info_zh)
+
   info_en = make_default_abstract_info(info: info_en)
 
   abstract_header(
     en: prefer_en_header, // By default thesis header should be Chinese no matter what
     anonymous: anonymous,
     fonts: fonts,
-    info_zh: info_zh,
     info_en: info_en,
   )
 
@@ -119,17 +115,8 @@
     )[#body_en]
 
     pagebreak(weak: true)
-
-    abstract_zh(
-      keywords: keywords_zh,
-      info: info_zh,
-      fonts: fonts,
-    )[#body_zh]
   } else {
-    abstract_zh(
-      keywords: keywords_zh,
-      fonts: fonts,
-    )[#body_zh]
+
 
     pagebreak(weak: true)
 

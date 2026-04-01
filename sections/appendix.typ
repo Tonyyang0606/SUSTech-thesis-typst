@@ -1,6 +1,6 @@
 #import "../template/template.typ": *
 
-== 附录A 代码示例
+== Appendix A Code Example
 
 ```cpp
 #include <iostream>
