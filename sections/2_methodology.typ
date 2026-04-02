@@ -2,35 +2,51 @@
 
 = Methodology
 
-== Overall Pipeline
+== Overview <sec-overview>
+We present ABIscope, a novel tool designed to generate user-space test cases for differential analysis of Linux ABI Compatibility in Rust-based kernels target at syscalls. The Overall pipeline follows an iterative seed generation and evaluation process, leveraging LLMs with feedback-driven exploration. At a high level, ABIscope consists of four key stages: (1) Seed initialization (#ref(<sec-seed-initialization>, supplement: [Section])), (2) LLM-based mutation (#ref(<sec-LLM-based-mutation>, supplement: [Section])), (3) execution and validation (#ref(<sec-Execution-and-Validation>, supplement: [Section])), and (4) coverage-guided selection (#ref(<sec-coverage-guided-selection>, supplement: [Section])). These four key components form a closed feedback loop. The overall pipeline is illustrated in #ref(<fig-pipeline>, supplement: [Figure]). We describe each stage in detail in the following sections.
 
-ABIscope 的实现由以下模块构成：
-- 种子与语料管理：`abi/origin_c/`, `abi/corpus/`
-- 主流程调度：`abi/main_pipeline.py`
-- 覆盖与价值评估：`abi/sac_manager.py`
-- 变异生成：`abi/llm_mutator.py`
-- 编译与修复：`abi/execute_and_repair.py`
-- 统一模型调用：`abi/utils.py`
+#figure(
+	image(
+		width: 100%,
+		"../images/pipeline.png"
+	),
+	supplement: [Figure],
+	caption: [Overall pipeline of ABIscope.]
+) <fig-pipeline>
 
-== Differential Execution Setup
+== Seed Initialization <sec-seed-initialization>
+Linux ABI Compatibility is complicated by the fact that the Linux kernel provides a large number of system calls and different structures, each of them have their own ABI. It is impractical to generate test cases for all of them. To simplify the problem, we focus on a subset of system calls that are commonly used and have well-defined ABis. We select a set of system calls of file system, involves `open`, `read`, `write`, `close`, `mmap`, `munmap`, `ioctl` and so on. The detailed definition of these syscalls can be found in the appendix.
 
-本工作对同一批程序分别在 Linux 与 KeepOS 上执行：
-- Linux 输出目录：`abi/origin_c/run_logs_linux/`
-- KeepOS 输出目录：`abi/origin_c/run_logs_keepos/`
-- 源程序目录：`abi/origin_c/run_logs_origin_C/`
+Syzkaller is a popular fuzzing tool for finding bugs in the Linux kernel developed by Google. It generates random inputs for system calls and monitors the kernel's behavior to identify potential vulnerabilities. But we cannot directly use Syzkaller to generate test cases for ABI Compatibility testing because incompatibility issues may not necessarily cause crashes or other easily detectable symptoms. That is to say, Syzkaller does not monitor the output of the system calls, which is crucial for identifying ABI Compatibility issues. However, Syzkaller can be used to generate initial seed test cases for our tool. We use syzkaller to generate a large number of test cases for the selected system calls and then filter out the valid ones based on their output. These valid test cases should be able to execute successfully on the Linux kernel and produce expected results. After the filtering process, we use a pre-written script to print the syscalls return value and the output parameters in a structured format. These output will be used to evaluate the compatibility of the test cases on Rust-based kernels.
+== LLM-based mutation <sec-LLM-based-mutation>
+ABIscope adopts a mutation-based approach to generate new test cases from the initial seeds. We leverage LLMs to perform mutations on the valid test cases generated in the previous stage. The LLM taks the valid test cases as input and generates new test cases by applying various mutation strategies.
+- Structure mutation: LLM can insert new syscalls to the test cases which can trigger new code paths in the kernel. For example, LLM can insert `mmap` syscall before `read` syscall to trigger the code path of memory mapping in the kernel. Also, LLM can remove some syscalls from the test cases to reach the edge cases. For example, LLM can remove `open` syscall from the test case to trigger the code path of handling invalid file descriptors to see the ability of the error-handling code in the rust-based kernel.
+- Order mutation: LLM can change the order of the syscalls in the tests cases to trigger different code paths in the kernel. For example, LLM can change the order of `rmdir` and `rename` syscalls to trigger the code path of handling directory operations in the kernel.
+- Fault injection: LLM can inject faults into the test cases to trigger specific error-handling code paths in the kernel. We can find incompatibility issues through the different errno values returned by the syscalls.
+- Logic mutation: LLM can construct stateful misuse patterns like double free, use-after-free and so on. The idea is the same as the logic mutation in AFL++ to see the compatibility of error-handling.
+- Parameter mutation: LLM perturbs syscall arguments at both value and structure levels to expose ABI-sensitive boundary behavior. Concretely, it rewrites scalar parameters (e.g., file descriptors, offsets, lengths, and flags) toward the cases that never appear in the seeds before. For instance, it may generate negative offsets, oversized lengths, or uncommon flag combinations. LLM can effectively explore the argument space by learning from the existing seeds.
+== Execution and Validation <sec-Execution-and-Validation>
+After generating new test cases through LLM-based mutation, ABIscope executes these test cases on Linux first. If the test case can be executed successfully on Linux, we will execute the same test case on Rust-based kernels. If the generated programs cannot be executed successfully on Linux, we will involve another LLM to fix the test cases. If the repair process fails after limit attempts, we will discard the test cases. The execution results of the test cases on both Linux and Rust-based kernels will be collected and compared to evaluate the compatibility of the test cases. We will compare the return values, output parameters, and error codes of the syscalls to identify any discrepancies that may indicate ABI incompatibility issues. If we find any discrepancies, we will further analyze the test cases to understand the root cause of the incompatibility and write reports to summarize the issues we found.
+== Coverage-Guided Selection <sec-coverage-guided-selection>
+To quantify the effectiveness of LLM-generated mutations, ABIscope adopts SAC (System-call Argument Coverage) as its primary feedback signal. In contrast to conventional control-flow coverage (e.g., line, basic-block, or branch coverage collected through kernel instrumentation), SAC evaluates whether a mutated seed explores previously unseen argument semantics and externally observable execution outcomes. This formulation is particularly suitable for ABI compatibility analysis, where behavioral divergence may arise even when no crash or obvious control-flow anomaly is observed.
 
-通过样本级别对齐（相同 `prog_xxxx`）完成差分输入准备。
+In our implementation, SAC integrates both static and dynamic evidence. The static dimension is extracted directly from generated C programs and includes: (i) flag-level behaviors, where individual macros (such as `O_RDWR`, `O_CREAT`, and `SEEK_END`) and their co-occurrence relations are encoded; (ii) path-pattern abstractions, where path-like literals are mapped to semantic categories defined by preconfigured pattern rules; (iii) numeric and alignment-sensitive arguments, including boundary values (e.g., `-1`, `0`), page-aligned constants, and oversized unsigned probes; and (iv) permission-mask semantics, where mode-related expressions are matched against predefined privilege-related masks to detect bits such as SUID/SGID.
 
-== LLM-based Incompatibility Attribution
+The dynamic dimension is obtained from runtime logs after compilation and execution of each seed. Through syscall-result probes (e.g., `LOG_SYSCALL_RES`), the framework records ordered syscall occurrences, per-call success/failure status, concrete errno outcomes, and global errno visibility. In addition, side effects on filesystem objects are characterized through `stat`-derived attributes, including file size regimes, link-count transitions, and effective mode changes. These dynamic observations provide direct evidence of kernel-visible state transitions and therefore complement static argument analysis.
 
-为提升分析效率，本文引入 LLM Agent：
-- 输入：单个 C 源码 + Linux 日志 + KeepOS 日志；
-- 输出：结构化 JSON（是否不兼容、类型、关键差异、根因假设、修复建议）。
+All extracted signals are normalized into a unified feature set. For a new seed, ABIscope computes coverage gain as the cardinality of the set difference between the seed feature set and the accumulated global coverage set (equivalently, `gain = len(new_features - global_coverage)`). Seeds with positive gain are admitted into the corpus and prioritized for subsequent mutation rounds, while seeds with zero gain are typically discarded. Consequently, SAC serves as a non-instrumentation, semantics-oriented guidance mechanism that continuously steers the LLM toward high-value edge cases for ABI incompatibility discovery.
 
-对应脚本为：`abi/analyze_keepos_abi_agent.py`。
+Also, the mutation strategies are not applied randomly. Instead, we use a reinforcement learning-based approach to select the mutation strategy for each seed. The reward signal is based on the coverage gain of the mutated seed. The mutation strategy that leads to higher coverage gain will be selected more frequently in the future. This approach allows ABIscope to adaptively focus on the most promising mutation strategies and improve the efficiency of selection process. The overall pipeline will be repeated until it reaches the maximum number of iterations or the time budget is exhausted.
 
-== Threats to Validity
 
-- fuzz 样本天然包含无效参数，需区分“样本噪声”与“内核不兼容”；
-- 不同内核对未定义行为容忍度不同，可能导致误判；
-- LLM 归因为启发式结论，需结合人工复核。
+
+== Threats to Validity <sec-threats-to-validity>
+Despite the feedback-driven design of ABIscope, several validity threats still remain.
+
+First, there are construct-validity threats in the coverage signal. SAC is designed to capture argument semantics and observable side effects, but it is still a proxy metric rather than a direct measure of incompatibility severity. A seed may produce positive SAC gain without exposing a meaningful ABI defect, while some true incompatibilities may exhibit limited gain if their behavioral signatures overlap with already observed patterns. To reduce this risk, SAC is evaluated jointly with differential execution outcomes and error-code distributions, rather than used as a standalone criterion.
+
+Second, there are internal-validity threats in mutation and execution. LLM-based mutation is inherently stochastic and can be sensitive to prompt context, which may affect reproducibility across runs. In addition, generated tests can contain invalid or weakly constrained arguments; such cases may amplify input noise and obscure real kernel-level divergence. We therefore retain only compilable/runnable candidates and interpret failures together with runtime traces, so that parameter invalidity can be separated from compatibility-relevant behavioral differences.
+
+Third, differential execution itself introduces confounding factors. Linux and Rust-based kernels may differ in scheduling behavior, timing, default configuration, and tolerance to undefined or implementation-dependent behavior. Some output discrepancies can therefore reflect environmental or semantic ambiguity rather than strict ABI incompatibility. To mitigate this issue, ABIscope compares aligned test inputs under controlled conditions and emphasizes stable, repeatable divergences.
+
+Finally, there are external-validity limitations. The current setup focuses on a selected file system-related syscall subset and may not fully generalize to other subsystems (e.g., networking, IPC, device drivers) or production workloads. Consequently, conclusions should be interpreted as evidence for the studied syscall domain, with broader generalization requiring expanded syscall coverage and larger-scale cross-kernel evaluation.
