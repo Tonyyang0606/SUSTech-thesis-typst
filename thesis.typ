@@ -72,9 +72,7 @@
 
 #include "sections/3_initial_results.typ"
 
-#include "sections/4_discussion.typ"
-
-#include "sections/5_summary_future.typ"
+#include "sections/4_summary_future.typ"
 
 #set heading(numbering: none)
 
@@ -82,6 +80,5 @@
 
 #references(show_both: false)
 
-#appendix(show_both: false)
 
-#include "sections/appendix.typ"
+
