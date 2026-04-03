@@ -108,7 +108,7 @@
 
   v(-10pt)
 
-  text("本科生毕业设计（论文）",size: FSIZE.小初,font: FONTS.宋体,weight: 600)
+  text("毕业设计（论文）中期报告",size: FSIZE.小初,font: FONTS.宋体,weight: 600)
 
   v(40pt)
 

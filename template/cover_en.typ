@@ -105,7 +105,7 @@
 
   v(-10pt)
 
-  text("Undergraduate Thesis",size: FSIZE.小初,font: FONTS.宋体)
+  text("Undergraduate thesis midterm report",size: FSIZE.小初,font: FONTS.宋体)
 
   v(40pt)
 
