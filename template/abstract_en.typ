@@ -3,17 +3,15 @@
 #let abstract_en(
   info: (:),
   fonts: (:),
-  keywords: (:),
+  keywords: (),
   body,
 ) = {
 
   fonts = FONTS + fonts
 
   align(left)[
-    #par(first-line-indent: 0em)[
-      #text(size: FSIZE.三号, font: FONTS.黑体, "[Abstract]: ")
-      #text(size: FSIZE.四号, font: FONTS.宋体,body)
-    ]
+    #text(size: FSIZE.三号, font: FONTS.黑体, weight: "bold")[Abstract: ]
+    #text(size: FSIZE.四号, font: FONTS.宋体, body)
   ]
 
   align(left+bottom)[

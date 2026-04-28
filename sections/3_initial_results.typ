@@ -1,7 +1,7 @@
 #import "../template/template.typ": *
 
 
-= Initial Experimental Results
+= Experimental Results
 
 This chapter focuses on the differential results of file-system-related system calls (e.g., `openat`, `read`, `write`, `fcntl`, `renameat`) when comparing native Linux with two Rust-based OS kernels: KeepOS and Asterinas. We ran an identical corpus of 500 generated C programs, built natively on Linux, and executed them across all three operating environments with sandboxing.
 
@@ -51,3 +51,5 @@ Linux enforces strict semantics for file descriptors instantiated with the `O_PA
 
 === Validation Deficits (`unexpected_success`)
 There is looser enforcement of access mode flags in the new kernels. While Linux rigorously verifies the `flags` parameter (e.g., bits mapping to `O_ACCMODE` forming invalid states on specific requests), Asterinas and KeepOS sometimes accept and quietly overlook invalid flags. Notably, Asterinas handles invalid memory pointers and boundary checks mildly tighter than KeepOS (yielding 15 unexpected successes vs KeepOS's 21), but both diverge from Linux's rigorous argument validation.
+
+== SAC Coverage Analysis

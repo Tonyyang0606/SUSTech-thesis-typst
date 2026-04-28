@@ -92,9 +92,11 @@
   en: false,
   anonymous: false,
   keywords_en: (:),
+  keywords_zh: (:),
   info_en: (:),
   fonts: (:),
   body_en: "",
+  body_zh: "",
 ) = {
 
   info_en = make_default_abstract_info(info: info_en)
@@ -115,8 +117,20 @@
     )[#body_en]
 
     pagebreak(weak: true)
-  } else {
 
+    abstract_zh(
+      keywords: keywords_zh,
+      info: info_en,
+      fonts: fonts,
+    )[#body_zh]
+
+    pagebreak(weak: true)
+  } else {
+    abstract_zh(
+      keywords: keywords_zh,
+      info: info_en,
+      fonts: fonts,
+    )[#body_zh]
 
     pagebreak(weak: true)
 
