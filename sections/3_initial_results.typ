@@ -3,53 +3,6 @@
 
 = Experimental Results
 
-This chapter focuses on the differential results of file-system-related system calls (e.g., `openat`, `read`, `write`, `fcntl`, `renameat`) when comparing native Linux with two Rust-based OS kernels: KeepOS and Asterinas. We ran an identical corpus of 500 generated C programs, built natively on Linux, and executed them across all three operating environments with sandboxing.
-
-== Overall Compatibility Statistics
-
-Both KeepOS and Asterinas demonstrate highly analogous behavior as shown by the number of incompatible test cases out of the 500 executions.
-
-#align(center)[
-#table(
-  columns: (auto, auto, auto),
-  align: center,
-  [*Metric*], [*KeepOS*], [*Asterinas*],
-  [Total Analyzed Cases], [500], [500],
-  [Incompatible Cases], [81 ], [80 ],
-
-)
-]
-
-The distribution of incompatibility types is strongly correlated between the two systems. The most frequent issues are the divergence of return error codes (`errno_diff`) and behavioral differences (`behavior_diff`).
-
-#align(center)[
-#table(
-  columns: (1fr, auto, auto),
-  align: center,
-  [*Incompatibility Type*], [*KeepOS Cases*], [*Asterinas Cases*],
-  [`errno_diff`], [79], [76],
-  [`behavior_diff`], [33], [32],
-  [`ret_diff`], [26], [25],
-  [`unexpected_failure`], [21], [20],
-  [`unexpected_success`], [21], [15],
-  [`missing_syscall`], [11], [10]
-)
-]
-
-== Major Incompatibility Categories
-
-
-
-=== Missing Syscall Support (`openat2`)
-Across 10 test cases, both KeepOS and Asterinas return `ENOSYS` (38) for the `openat2` syscall (syscall 437). Linux, depending on the test arguments, typically returns `EINVAL` (22) if the struct size or flag combinations are malformed. This highlights a gap indicating neither system currently supports the Linux 5.6+ `openat2` ABI endpoint.
-
-=== `fcntl` Errno Precedence Mismatch (`EINVAL` vs `EBADF`)
-A highly frequent defect (affecting 31 cases in KeepOS and 22 in Asterinas) revolves around `fcntl` argument validation priority. When an operation is performed on an invalid file descriptor (e.g., `-1`) and an unsupported command is passed, the Linux VFS checks the file descriptor logic first, returning `EBADF` (9). Conversely, KeepOS and Asterinas evaluate the `fcntl` command first and reject it as an unsupported operation, returning `EINVAL` (22).
-
-=== `O_PATH` Semantics and Operation Filtering
-Linux enforces strict semantics for file descriptors instantiated with the `O_PATH` flag: most operations (including many `fcntl` commands) are invalid on them and immediately yield `EBADF`. The test results reveal 11 failures in KeepOS and 9 in Asterinas where operations on `O_PATH` descriptors behaved differently (yielding `EINVAL` instead of the required `EBADF` or proceeding successfully). The Rust-based kernels currently fail to maintain identical filtering boundaries.
-
-=== Validation Deficits (`unexpected_success`)
-There is looser enforcement of access mode flags in the new kernels. While Linux rigorously verifies the `flags` parameter (e.g., bits mapping to `O_ACCMODE` forming invalid states on specific requests), Asterinas and KeepOS sometimes accept and quietly overlook invalid flags. Notably, Asterinas handles invalid memory pointers and boundary checks mildly tighter than KeepOS (yielding 15 unexpected successes vs KeepOS's 21), but both diverge from Linux's rigorous argument validation.
-
-== SAC Coverage Analysis
+The most direct way to evaluate a testing framework is to apply it to real-world software and to see whether it can find real bugs@Eva_testing. In the idea of ABIscope, the most direct way is to use the programs provided by the ABIscope and run on the both kernels. We therefore conduct end-to-end experiments that full ABIscope pipeline runs autonomously until either a clock budget of 6 hours is exhausted or a total of 500 executable binaries are generated. All experiments are performed on a server equipped with two AMD EPYC 9354 32-core processors (128 hardware threads in total) and 1.5 TiB of RAM. LLM-based mutation and translation are powered by GPT-5-mini (version 2025-08-07) via the OpenAI API. The reference environment is based on Ubuntu 24.04 LTS with Linux kernel 6.8.0-94-generic and the target Rust-based kernel is Asterinas@aster, a Linux ABI-compatible framekernel OS implemented entirely in safe Rust that supports over 210 Linux system calls and has been shown to deliver performance comparabale to the Linux kernel.
+== Experimental Setup
+We evaluate ABIscope across three syscall domains: (1)*Filesystem*(FS) opertions including `open`, `openat`, `read`, `write`, `fcntl` and related calls; (2) *I/O Management* including `dup`, `lseek`, `ftruncate`, `fsync`, `pread64` and related calls; (3) *Memory Management* including `mmap`, `madvise`, `brk` and related calls. In all experiments, the same set of static compiled C binaries is executed on both a reference Linux kernel and the target Rust-based kernel. Runtime probe logs (`LOG_SYSCALL_RES` and `LOG_STAT` outputs) are collected for each execution and compared to identify the incompatibility issues. A case is classified a incompatiable if any return value, error code, or observable side-effect differs between the two platforms.
