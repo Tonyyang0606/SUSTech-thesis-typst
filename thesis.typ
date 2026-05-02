@@ -5,9 +5,9 @@
 
 
 #let info_en = (
-  clc: "TP3",
-    thesis_id: "20250328",
-    udc: "004",
+  clc: "",
+    thesis_id: "",
+    udc: "",
     title: ("ABIscope —Differential Analysis of Linux ABI Compatibility in Rust-based Kernels",),
     subtitle: "",
     author: "杨若谷",
@@ -55,7 +55,7 @@
 )
 
 #let abstract_body_en = [
- Linux kernel is the core component of the Linux operating system, responsible for providing essential services and managing hardware resources. With the emergence of Rust as a systems programming language, there has been growing interest in using Rust for kernel development due to its memory safety features. However, ensuring ABI (Application Binary Interface) Compatibility between Rust-based kernels and existing Linux kernel modules is crucial for the successful adoption of Rust in kernel development. Existing tools like Syzkaller target at finding bugs in the Linux kernel, but they do not specifically address the challenges of ABI Compatibility in Rust-based kernels. In this thesis, we present ABIscope, a novel tool designed to generate user-space test cases for differential analysis of Linux ABI Compatibility in Rust-based kernels. ABIscope makes uses of LLMs to generate test cases. We evaluate ABIscope on Rust-based kernels and demonstrate its effectiveness in identifying ABI Compatibility issues, providing valuable insights for developers and researchers in the field of kernel development.
+ The Linux kernel is the core component of the Linux operating system, responsible for providing essential services and managing hardware resources. With the emergence of Rust as a systems programming language, there has been growing interest in using Rust for kernel development due to its memory safety features. However, ensuring ABI (Application Binary Interface) Compatibility between Rust-based kernels and existing Linux kernel modules is crucial for the successful adoption of Rust in kernel development. Existing tools like Syzkaller target finding bugs in the Linux kernel, but they do not specifically address the challenges of ABI Compatibility in Rust-based kernels. In this thesis, we present ABIscope, a novel tool designed to generate user-space test cases for differential analysis of Linux ABI Compatibility in Rust-based kernels. ABIscope makes use of LLMs to generate test cases. We evaluate ABIscope on Rust-based kernels and demonstrate its effectiveness in identifying ABI Compatibility issues, providing valuable insights for developers and researchers in the field of kernel development.
 ]
 
 #let abstract_body_zh = [
